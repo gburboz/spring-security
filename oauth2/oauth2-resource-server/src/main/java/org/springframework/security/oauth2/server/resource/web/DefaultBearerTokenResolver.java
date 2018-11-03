@@ -27,9 +27,11 @@ import javax.servlet.http.HttpServletRequest;
 
 import org.springframework.http.HttpHeaders;
 import org.springframework.http.HttpStatus;
+import org.springframework.http.MediaType;
 import org.springframework.security.oauth2.core.OAuth2AuthenticationException;
 import org.springframework.security.oauth2.server.resource.BearerTokenError;
 import org.springframework.security.oauth2.server.resource.BearerTokenErrorCodes;
+import org.springframework.web.bind.annotation.RequestMethod;
 
 /**
  * The default {@link BearerTokenResolver} implementation based on RFC 6750.
@@ -50,7 +52,11 @@ public final class DefaultBearerTokenResolver implements BearerTokenResolver {
 
 	private static final String ACCESS_TOKEN_PARAM_NAME = "access_token";
 
-	private static final Pattern AUTHORIZATION_PATTERN = Pattern.compile("^Bearer (?<token>[a-zA-Z0-9-._~+/]+)=*$");
+	private static final String TOKEN_CHARS = "(?<token>([a-zA-Z0-9-._~+/]+)=*$)";
+
+	private static final Pattern TOKEN_PATTERN = Pattern.compile(TOKEN_CHARS);
+
+	private static final Pattern AUTHORIZATION_PATTERN = Pattern.compile("^Bearer " + TOKEN_CHARS);
 
 	private boolean allowFormEncodedBodyParameter = false;
 
@@ -101,11 +107,9 @@ public final class DefaultBearerTokenResolver implements BearerTokenResolver {
 		final String authorization = request.getHeader(HttpHeaders.AUTHORIZATION);
 		if (authorization != null && authorization.startsWith("Bearer")) {
 			final Matcher matcher = AUTHORIZATION_PATTERN.matcher(authorization);
-
 			if (!matcher.matches()) {
 				throw new OAuth2AuthenticationException(BEARER_TOKEN_ERROR_MALFORMED);
 			}
-
 			return matcher.group("token");
 		}
 		return null;
@@ -115,6 +119,10 @@ public final class DefaultBearerTokenResolver implements BearerTokenResolver {
 		// By this point there is either zero or one value
 		final String value = request.getParameter(ACCESS_TOKEN_PARAM_NAME);
 		if (value != null && isParameterTokenSupportedForRequest(request)) {
+			final Matcher matcher = TOKEN_PATTERN.matcher(value);
+			if (!matcher.matches()) {
+				throw new OAuth2AuthenticationException(BEARER_TOKEN_ERROR_MALFORMED);
+			}
 			return value;
 		} else {
 			return null;
@@ -122,8 +130,13 @@ public final class DefaultBearerTokenResolver implements BearerTokenResolver {
 	}
 
 	private boolean isParameterTokenSupportedForRequest(HttpServletRequest request) {
-		return ((this.allowFormEncodedBodyParameter && "POST".equals(request.getMethod()))
-				|| (this.allowUriQueryParameter && "GET".equals(request.getMethod())));
+		final boolean uriQueryParamSupported = this.allowUriQueryParameter
+				&& RequestMethod.GET.equals(RequestMethod.valueOf(request.getMethod()))
+				&& isTokenInUriQueryParameter(request);
+		final boolean formParamSupported = this.allowFormEncodedBodyParameter
+				&& !RequestMethod.GET.equals(RequestMethod.valueOf(request.getMethod()))
+				&& MediaType.APPLICATION_FORM_URLENCODED.equals(MediaType.valueOf(request.getContentType()));
+		return uriQueryParamSupported || formParamSupported;
 	}
 
 	private boolean hasMultipleAccessTokens(final HttpServletRequest request, final String authorizationHeaderToken) {

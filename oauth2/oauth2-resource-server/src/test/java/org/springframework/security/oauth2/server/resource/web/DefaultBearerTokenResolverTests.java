@@ -20,7 +20,7 @@ import java.util.Base64;
 
 import org.junit.Before;
 import org.junit.Test;
-
+import org.springframework.http.MediaType;
 import org.springframework.mock.web.MockHttpServletRequest;
 import org.springframework.security.oauth2.core.OAuth2AuthenticationException;
 
@@ -34,7 +34,7 @@ import static org.assertj.core.api.Assertions.assertThatCode;
  */
 public class DefaultBearerTokenResolverTests {
 
-	private static final String TEST_TOKEN = "test-token";
+	private static final String TEST_TOKEN = "test-token_+~./dGVzdC10b.2tlbg==";
 
 	private DefaultBearerTokenResolver resolver;
 
@@ -101,6 +101,7 @@ public class DefaultBearerTokenResolverTests {
 		MockHttpServletRequest request = new MockHttpServletRequest();
 		request.addHeader("Authorization", "Bearer " + TEST_TOKEN);
 		request.setMethod("GET");
+		request.setQueryString("access_token=" + TEST_TOKEN);
 		request.addParameter("access_token", TEST_TOKEN);
 
 		assertThatCode(() -> this.resolver.resolve(request)).isInstanceOf(OAuth2AuthenticationException.class)
@@ -129,6 +130,42 @@ public class DefaultBearerTokenResolverTests {
 	}
 
 	@Test
+	public void resolveWhenFormParameterIsPresentAndSupportedWithDeleteRequestThenTokenIsResolved() {
+		this.resolver.setAllowFormEncodedBodyParameter(true);
+
+		MockHttpServletRequest request = new MockHttpServletRequest();
+		request.setMethod("DELETE");
+		request.setContentType("application/x-www-form-urlencoded");
+		request.addParameter("access_token", TEST_TOKEN);
+
+		assertThat(this.resolver.resolve(request)).isEqualTo(TEST_TOKEN);
+	}
+
+	@Test
+	public void resolveWhenFormParameterIsPresentAndSupportedWithPatchRequestThenTokenIsResolved() {
+		this.resolver.setAllowFormEncodedBodyParameter(true);
+
+		MockHttpServletRequest request = new MockHttpServletRequest();
+		request.setMethod("PATCH");
+		request.setContentType("application/x-www-form-urlencoded");
+		request.addParameter("access_token", TEST_TOKEN);
+
+		assertThat(this.resolver.resolve(request)).isEqualTo(TEST_TOKEN);
+	}
+
+	@Test
+	public void resolveWhenFormParameterIsPresentAndSupportedWithPutRequestThenTokenIsResolved() {
+		this.resolver.setAllowFormEncodedBodyParameter(true);
+
+		MockHttpServletRequest request = new MockHttpServletRequest();
+		request.setMethod("PUT");
+		request.setContentType("application/x-www-form-urlencoded");
+		request.addParameter("access_token", TEST_TOKEN);
+
+		assertThat(this.resolver.resolve(request)).isEqualTo(TEST_TOKEN);
+	}
+
+	@Test
 	public void resolveWhenFormParameterIsPresentAndNotSupportedThenTokenIsNotResolved() {
 		MockHttpServletRequest request = new MockHttpServletRequest();
 		request.setMethod("POST");
@@ -139,22 +176,86 @@ public class DefaultBearerTokenResolverTests {
 	}
 
 	@Test
+	public void resolveWhenFormParameterIsPresentAndSupportedWithInvalidContentTypeThenTokenIsNotResolved() {
+		MockHttpServletRequest request = new MockHttpServletRequest();
+		request.setMethod("POST");
+		request.setContentType(MediaType.MULTIPART_FORM_DATA.getType());
+		request.addParameter("access_token", TEST_TOKEN);
+
+		assertThat(this.resolver.resolve(request)).isNull();
+	}
+
+	@Test
+	public void resolveWhenFormParameterIsAbsentAndSupportedWithQueryParameterIsPresentAndNotSupportedThenAuthenticationExceptionIsThrown() {
+		this.resolver.setAllowFormEncodedBodyParameter(true);
+
+		MockHttpServletRequest request = new MockHttpServletRequest();
+		request.setMethod("POST");
+		request.setContentType("application/x-www-form-urlencoded");
+		request.setQueryString("access_token=" + TEST_TOKEN);
+		request.addParameter("access_token", TEST_TOKEN);
+
+		assertThatCode(() -> this.resolver.resolve(request)).isInstanceOf(OAuth2AuthenticationException.class)
+		.hasMessageContaining(("Bearer token is malformed"));
+	}
+
+	@Test
 	public void resolveWhenQueryParameterIsPresentAndSupportedThenTokenIsResolved() {
 		this.resolver.setAllowUriQueryParameter(true);
 
 		MockHttpServletRequest request = new MockHttpServletRequest();
 		request.setMethod("GET");
+		request.setQueryString("access_token=" + TEST_TOKEN);
 		request.addParameter("access_token", TEST_TOKEN);
 
 		assertThat(this.resolver.resolve(request)).isEqualTo(TEST_TOKEN);
 	}
 
 	@Test
-	public void resolveWhenQueryParameterIsPresentAndNotSupportedThenTokenIsNotResolved() {
+	public void resolveWhenQueryParameterIsPresentAndSupportedWithPostRequestThenTokenIsNotResolved() {
+		this.resolver.setAllowUriQueryParameter(true);
+
 		MockHttpServletRequest request = new MockHttpServletRequest();
-		request.setMethod("GET");
+		request.setMethod("POST");
+		request.setContentType("application/x-www-form-urlencoded");
+		request.setQueryString("access_token=" + TEST_TOKEN);
 		request.addParameter("access_token", TEST_TOKEN);
 
 		assertThat(this.resolver.resolve(request)).isNull();
 	}
+
+	@Test
+	public void resolveWhenQueryParameterIsPresentAndSupportedWithHeadRequestThenTokenIsNotResolved() {
+		this.resolver.setAllowUriQueryParameter(true);
+
+		MockHttpServletRequest request = new MockHttpServletRequest();
+		request.setMethod("HEAD");
+		request.setQueryString("access_token=" + TEST_TOKEN);
+		request.addParameter("access_token", TEST_TOKEN);
+
+		assertThat(this.resolver.resolve(request)).isNull();
+	}
+
+	@Test
+	public void resolveWhenQueryParameterIsPresentAndNotSupportedThenTokenIsNotResolved() {
+		MockHttpServletRequest request = new MockHttpServletRequest();
+		request.setMethod("GET");
+		request.setQueryString("access_token=" + TEST_TOKEN);
+		request.addParameter("access_token", TEST_TOKEN);
+
+		assertThat(this.resolver.resolve(request)).isNull();
+	}
+
+	@Test
+	public void resolveWhenQueryParameterIsAbsentAndSupportedWithFormParameterIsPresentAndNotSupportedThenTokenIsNotResolved() {
+		this.resolver.setAllowUriQueryParameter(true);
+
+		MockHttpServletRequest request = new MockHttpServletRequest();
+		request.setMethod("POST");
+		request.setContentType("application/x-www-form-urlencoded");
+		request.addParameter("access_token", TEST_TOKEN);
+
+		assertThat(this.resolver.resolve(request)).isNull();
+	}
+
 }

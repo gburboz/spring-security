@@ -572,6 +572,7 @@ public class OAuth2ResourceServerConfigurerTests {
 				.andExpect(content().string(JWT_SUBJECT));
 
 		this.mvc.perform(post("/authenticated")
+				.contentType(MediaType.APPLICATION_FORM_URLENCODED)
 				.param("access_token", JWT_TOKEN))
 				.andExpect(status().isOk())
 				.andExpect(content().string(JWT_SUBJECT));
@@ -592,8 +593,7 @@ public class OAuth2ResourceServerConfigurerTests {
 				.andExpect(status().isOk())
 				.andExpect(content().string(JWT_SUBJECT));
 
-		this.mvc.perform(get("/authenticated")
-				.param("access_token", JWT_TOKEN))
+		this.mvc.perform(get("/authenticated?access_token=" + JWT_TOKEN))
 				.andExpect(status().isOk())
 				.andExpect(content().string(JWT_SUBJECT));
 	}
@@ -609,6 +609,7 @@ public class OAuth2ResourceServerConfigurerTests {
 		when(decoder.decode(anyString())).thenReturn(JWT);
 
 		this.mvc.perform(post("/authenticated")
+				.contentType(MediaType.APPLICATION_FORM_URLENCODED)
 				.param("access_token", JWT_TOKEN)
 				.with(bearerToken(JWT_TOKEN))
 				.with(csrf()))

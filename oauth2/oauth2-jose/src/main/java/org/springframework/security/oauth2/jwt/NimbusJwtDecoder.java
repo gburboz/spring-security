@@ -70,7 +70,7 @@ import java.util.Map;
  * @since 5.2
  */
 public final class NimbusJwtDecoder implements JwtDecoder {
-	private static final String DECODING_ERROR_MESSAGE_TEMPLATE =
+	static final String DECODING_ERROR_MESSAGE_TEMPLATE =
 			"An error occurred while attempting to decode the Jwt: %s";
 
 	private final JWTProcessor<SecurityContext> jwtProcessor;
@@ -119,6 +119,10 @@ public final class NimbusJwtDecoder implements JwtDecoder {
 	@Override
 	public Jwt decode(String token) throws JwtException {
 		JWT jwt = parse(token);
+		return decode(token, jwt);
+	}
+
+	Jwt decode(String token, JWT jwt) {
 		if (jwt instanceof SignedJWT) {
 			Jwt createdJwt = createJwt(token, jwt);
 			return validateJwt(createdJwt);
